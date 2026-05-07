@@ -1,57 +1,61 @@
-# Sample Hardhat 3 Beta Project (`mocha` and `ethers`)
+# Multi-Chain ERC-20 Token & Economic Analysis
 
-This project showcases a Hardhat 3 Beta project using `mocha` for tests and the `ethers` library for Ethereum interactions.
+This project showcases a Hardhat 3 Beta environment using TypeScript and the `ethers` (v6) library. Its primary goal is to deploy an ERC-20 smart contract across different blockchain architectures (Layer 1, Sidechains, and Layer 2 Rollups) to analyze and compare the real-world gas costs of contract deployment and token transfers.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join the [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in their GitHub issue tracker.
 
 ## Project Overview
 
-This example project includes:
+This research project includes:
+- **`contracts/MultiChainToken.sol`**: An OpenZeppelin-based ERC-20 smart contract.
+- **`scripts/deploy.ts`**: The core execution and analysis script. It deploys the contract, performs a test token transfer, fetches live network fee data, and calculates the economic cost in USD.
+- **Hardhat 3 Configuration**: Configured to connect to multiple network types, including Ethereum L1 (`sepolia`), Polygon PoS (`amoy`), and Optimistic Rollups (`arbitrumSepolia`).
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using `mocha` and ethers.js
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+## Environment Setup
 
-## Usage
+Before running the deployment and analysis, **you must configure your local environment variables**. 
 
-### Running Tests
+1. Create a `.env` file in the root directory of your project.
+2. Add your private key and the RPC URLs (e.g., from Alchemy) for the networks you wish to test:
 
-To run all the tests in the project, execute the following command:
+```env
+# Your wallet's private key (DO NOT share this or commit it to GitHub)
+PRIVATE_KEY=your_private_key_here
 
-```shell
-npx hardhat test
+# RPC URLs
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+AMOY_RPC_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+ARBITRUM_RPC_URL=https://arb-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
 ```
 
-You can also selectively run the Solidity or `mocha` tests:
+*Note: Ensure that `.env` is included in your `.gitignore` file to keep your private key secure.*
 
+## Usage: Running the Economic Analysis
+
+Unlike standard Hardhat projects that use Ignition modules, this project relies on a custom `deploy.ts` script to handle both deployment and cost analysis in a single run.
+
+To deploy the token, execute a test transfer, and view the economic analysis, run the script against your desired network:
+
+**For Ethereum Sepolia (L1 Benchmark):**
 ```shell
-npx hardhat test solidity
-npx hardhat test mocha
+npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
-### Make a deployment to Sepolia
-
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
-
-To run the deployment to a local chain:
-
+**For Polygon Amoy (Sidechain):**
 ```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
+npx hardhat run scripts/deploy.ts --network amoy
 ```
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
-
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
-
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
-
+**For Arbitrum Sepolia (L2 Rollup):**
 ```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+npx hardhat run scripts/deploy.ts --network arbitrumSepolia
 ```
 
-After setting the variable, you can run the deployment with the Sepolia network:
+### Expected Output
+Upon successful execution, the script will output:
+1. The deployed contract address.
+2. The exact `Gas Used` for both the deployment and a standard `transfer` operation.
+3. The live `Gas Price` fetched directly from the network's RPC.
+4. A calculated USD estimate demonstrating the cost difference between L1 and L2 infrastructures.
 
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+*** You can copy and paste this directly into your `README.md` file. It accurately reflects your methodology and provides clear instructions for anyone reviewing your project!
