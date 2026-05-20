@@ -8,7 +8,12 @@ To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide]
 
 This research project includes:
 - **`contracts/MultiChainToken.sol`**: An OpenZeppelin-based ERC-20 smart contract.
-- **`scripts/deploy.ts`**: The core execution and analysis script. It deploys the contract, performs a test token transfer, fetches live network fee data, and calculates the economic cost in USD.
+- **`contracts/TokenSaleApprove.sol`**: Time-windowed token sale + vesting (claim after release), tokens are pulled from the owner's wallet via `transferFrom` — the classic approve-pattern ICO.
+- **`contracts/TokenSalePrefund.sol`**: Same idea, but the contract is pre-funded with tokens up front; `claim()` simply calls `transfer` from the contract's own balance. Adds `withdrawUnsold()`.
+- **`scripts/deploy.ts`**: The original execution and analysis script. Deploys the token, performs a test transfer, prints gas/fee data.
+- **`scripts/deploy-sale.ts`**: Deploys the token plus both sale contracts on a chosen network and funds them (approve for variant A, transfer for variant B).
+- **`scripts/demo-sale.ts`**: Runs an end-to-end scenario on the local EDR node with time-travel (start → sale → release → claim → withdraw) for both sale variants.
+- **`test/TokenSale.ts`**: Mocha/Chai tests covering both sale contracts (window enforcement, supply cap, double-claim, withdraw flows, etc.).
 - **Hardhat 3 Configuration**: Configured to connect to multiple network types, including Ethereum L1 (`sepolia`), Polygon PoS (`amoy`), and Optimistic Rollups (`arbitrumSepolia`).
 
 ## Environment Setup
@@ -58,4 +63,80 @@ Upon successful execution, the script will output:
 3. The live `Gas Price` fetched directly from the network's RPC.
 4. A calculated USD estimate demonstrating the cost difference between L1 and L2 infrastructures.
 
-*** You can copy and paste this directly into your `README.md` file. It accurately reflects your methodology and provides clear instructions for anyone reviewing your project!
+## Token Sale + Vesting (rozszerzenie ERC-20)
+
+Bazowy ERC-20 zostaje nietknięty (`MultiChainToken`), a obok dorzuciliśmy dwa kontrakty sprzedażowe pokazujące **dwa różne sposoby dystrybucji** tych samych tokenów z **oknem czasowym sprzedaży** i **vestingiem (claim po `releaseTime`)**.
+
+### Wspólne fazy
+
+```
+BeforeStart -> SaleOpen [startTime, endTime] -> SaleClosed [endTime, releaseTime) -> ClaimOpen [releaseTime, +inf)
+```
+
+W oknie `SaleOpen` można wywołać `buyTokens(qty)` z `msg.value == qty * priceWeiPerToken` — zakup zostaje zaksięgowany w `purchased[buyer]`. Tokeny pojawiają się w portfelu kupującego dopiero po `releaseTime`, gdy wywoła `claim()`. Owner odbiera zebrane ETH przez `withdrawProceeds(to)` po `endTime`.
+
+### Wariant A: `TokenSaleApprove` (approve + transferFrom)
+
+Klasyczny ICO approve-pattern. Przed `startTime` właściciel tokenów (`treasury`) musi wykonać:
+
+```
+token.approve(saleAddress, tokensForSale * 10**decimals)
+```
+
+Tokeny **nie** są przenoszone do kontraktu sprzedaży — siedzą w portfelu `treasury` do momentu, w którym kupujący sam wywoła `claim()`. Wtedy kontrakt wykonuje `token.transferFrom(treasury, msg.sender, qty * 1e18)`.
+
+Plusy: nie zamrażasz tokenów w obcym kontrakcie, łatwo cofnąć zezwolenie (`approve(sale, 0)`).
+Minusy: jeśli `treasury` w międzyczasie wytransferuje tokeny gdzie indziej, claim się nie uda.
+
+### Wariant B: `TokenSalePrefund` (prefund + transfer)
+
+Owner przed startem przesyła całą pulę tokenów bezpośrednio na adres kontraktu:
+
+```
+token.transfer(saleAddress, tokensForSale * 10**decimals)
+```
+
+`claim()` to po prostu `token.transfer(msg.sender, qty * 1e18)` z balansu kontraktu. Dodatkowa funkcja `withdrawUnsold(to)` (po `releaseTime`, raz) pozwala odzyskać niesprzedaną resztę.
+
+Plusy: claim nie zależy od zewnętrznego allowance, prostsze do audytu.
+Minusy: tokeny są zamrożone w kontrakcie aż do końca cyklu.
+
+### Uruchomienie
+
+Deploy obu sale + tokena na Sepolii (lub innej sieci z `hardhat.config.ts`):
+
+```shell
+npm run deploy:sale
+# albo z parametrami:
+#   $env:NETWORK="sepolia"; $env:TOKENS_FOR_SALE="100"; $env:PRICE_ETH_PER_TOKEN="0.0001"; npm run deploy:sale
+```
+
+Skrypt drukuje adresy obu kontraktów, parametry okna sprzedaży, gas usage i wykonuje:
+- `token.approve(saleApprove, tokensForSale * 1e18)` — zasilenie wariantu A
+- `token.transfer(salePrefund, tokensForSale * 1e18)` — zasilenie wariantu B
+
+Pełne demo end-to-end na lokalnym EDR (z time-travelem przez `evm_increaseTime`):
+
+```shell
+npm run demo:sale
+```
+
+Demo dla każdego z dwóch wariantów wykonuje: kupno przed startem (revert) → kupno w oknie (alice 30, bob 20) → kupno ze złą kwotą (revert) → claim przed releaseTime (revert) → claim po releaseTime → podwójny claim (revert) → `withdrawProceeds` ownera. Dla wariantu prefund dodatkowo `withdrawUnsold`.
+
+Testy mocha/chai:
+
+```shell
+npm test
+```
+
+### Konfiguracja parametrów sprzedaży
+
+| zmienna env             | default       | opis                                     |
+|-------------------------|---------------|------------------------------------------|
+| `NETWORK`               | `sepolia`     | nazwa sieci z `hardhat.config.ts`        |
+| `INITIAL_SUPPLY`        | `1000000`     | początkowa podaż tokena (whole tokens)   |
+| `TOKENS_FOR_SALE`       | `100`         | ile całych tokenów sprzedać w sale       |
+| `PRICE_ETH_PER_TOKEN`   | `0.0001`      | cena 1 tokena w ETH                      |
+| `SALE_START_DELAY_S`    | `120`         | sekundy od `now` do `startTime`          |
+| `SALE_DURATION_S`       | `3600`        | długość okna sprzedaży w sekundach       |
+| `VESTING_AFTER_END_S`   | `3600`        | sekundy od `endTime` do `releaseTime`    |

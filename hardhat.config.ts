@@ -33,19 +33,19 @@ export default defineConfig({
     sepolia: {
       type: "http",
       chainType: "l1", // Layer 1 [cite: 173]
-      url: process.env.SEPOLIA_RPC_URL || "",
+      url: process.env.SEPOLIA_RPC_URL || "http://127.0.0.1:8545",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     amoy: {
       type: "http",
       chainType: "l1", // Polygon PoS traktujemy tu jako sidechain (architektura L1)
-      url: process.env.AMOY_RPC_URL || "",
+      url: process.env.AMOY_RPC_URL || "http://127.0.0.1:8545",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     arbitrumSepolia: {
       type: "http",
       chainType: "op", // Arbitrum to Optimistic Rollup
-      url: process.env.ARBITRUM_RPC_URL || "",
+      url: process.env.ARBITRUM_RPC_URL || "http://127.0.0.1:8545",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },

@@ -1,7 +1,7 @@
 import { network } from "hardhat";
 
 async function main() {
-    const { ethers } = await network.connect({ network: "sepolia" });
+    const { ethers } = await network.getOrCreate({ network: "sepolia" });
 
     const initialSupply = 1000000;
     const Token = await ethers.getContractFactory("MultiChainToken");

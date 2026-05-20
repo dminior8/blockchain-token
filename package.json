@@ -47,7 +47,11 @@
     "zod": "^3.25.76"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:sale": "hardhat run scripts/deploy-sale.ts --network sepolia",
+    "demo:sale": "hardhat run scripts/demo-sale.ts"
   },
   "keywords": [],
   "author": "",
